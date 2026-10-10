@@ -17,10 +17,18 @@ Assistant"; the project name is **Novda**.
 
 ## Screenshots
 
-Screenshot locations are prepared in [`docs/screenshots/`](docs/screenshots/README.md).
-No screenshots are included yet. Planned views: local chat, a document-grounded
-answer, and the Coding Mode diff preview. Capture these with synthetic data
-before adding them to a public repository.
+These are actual browser captures from an isolated store containing only synthetic
+demo content. No personal conversations or documents were used.
+
+![Streaming local chat with Qwen3 4B](docs/screenshots/chat.png)
+
+![Local document answer with a cited demo attachment](docs/screenshots/documents.png)
+
+![Reviewed and rejected Coding Mode proposal; no edit was applied](docs/screenshots/coding.png)
+
+See the [web search](docs/screenshots/web-search.png) and
+[repository search](docs/screenshots/repository.png) captures, or the
+[screenshot guide](docs/screenshots/README.md).
 
 ## Current features
 
@@ -149,6 +157,25 @@ local setup. Otherwise it selects an available chat model. No custom model
 weights or instructions for obtaining that preferred model are bundled.
 Embedding models are filtered out of the chat selector.
 
+### Verified model settings and memory troubleshooting
+
+The release smoke test successfully streamed through Novda using the installed
+`qwen3:4b-instruct-2507-q4_K_M` model with thinking off at both 4K and 8K context.
+On the tested 16 GB RAM / 6 GB VRAM machine, start with that model at **4K**;
+context and model size affect memory demand. The 16K option remains available
+but was not live-tested.
+
+The installed `ornith-1.5:9b` failed even on a direct Ollama `/api/chat` request
+with `num_ctx: 4096`, `num_predict: 16`, and `think: false`. Ollama reported an
+inability to allocate a **2,923,940,352-byte CUDA_Host buffer**, after a projector
+CPU offload retry. This is an Ollama model-loading allocation failure reproduced
+outside Novda. The 9B model's roughly 6.1 GiB weights plus runtime overhead put
+pressure on this hardware; the exact driver/allocator cause was not established.
+Use the verified smaller model, release competing memory, or use hardware with
+more capacity before retrying the larger model. No functionality or context
+options were removed. See the [Ollama memory/context guidance](https://docs.ollama.com/faq)
+and [release verification report](docs/RELEASE_VERIFICATION.md).
+
 ## Starting Novda
 
 From the project root, with your Python environment active:
@@ -227,6 +254,12 @@ source file. The model returns a structured proposal; the backend validates it
 and generates the authoritative unified diff. Review that diff, then choose
 **Reject** or **Apply & Test**.
 
+Proposal generation is model-dependent. In the live release review, one proposal
+passed validation and was reviewed and rejected; three others were safely refused
+for empty changes or expected text that did not match the source. Provide a precise
+file, line range, and exact existing text, and review any retry. No patch was applied
+during the browser smoke test.
+
 A proposal can change at most three existing supported text files, with one
 unique expected-text replacement per file. There are no model-provided shell
 commands, new-file operations, or file deletions. Applying verifies that each
@@ -271,6 +304,12 @@ previews, stale writes, and configuration portability. It does not certify live
 model quality, internet search availability, browser rendering, or hostile code
 execution safety. Perform a live local smoke test before a release.
 
+The [2026-10-10 release verification](docs/RELEASE_VERIFICATION.md) also exercised
+real local streaming, saved conversations, model/context settings, document RAG,
+unpaid web search, repository tools, and proposal review in an isolated Edge browser.
+It recorded zero JavaScript console or page errors after repairing a missing
+footer helper that had prevented message submission.
+
 The GitHub Actions workflow runs the regression, dependency, and syntax checks
 on Python 3.12 for Windows and Ubuntu after pushing or opening a pull request.
 It uses mocked model/search calls and does not require Ollama, API keys, or user data.
@@ -287,7 +326,7 @@ It uses mocked model/search calls and does not require Ollama, API keys, or user
 - Repository access is limited to this source tree; coding handles small existing-file
   edits and offers no rollback, transaction, or execution isolation.
 - Dependency ranges are not reproducibly locked; broader platform/version coverage
-  and live browser/model validation remain work in progress.
+  and model-quality validation remain work in progress.
 
 ## Roadmap
 

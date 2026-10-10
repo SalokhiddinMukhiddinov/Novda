@@ -57,18 +57,27 @@ After reviewing the local commit and completing the manual checks, run these
 commands from the repository root. Choose a different repository name if `novda`
 already exists in your account.
 
-```text
-gh auth status
-gh repo create novda --public --source=. --remote=origin
+The authenticated CLI may target an enterprise host. Select public GitHub
+explicitly; the verified public account is `SalokhiddinMukhiddinov`.
+
+```powershell
+# Trust this exact checkout for this terminal only if Git reports an ownership warning.
+$env:GIT_CONFIG_COUNT = '1'
+$env:GIT_CONFIG_KEY_0 = 'safe.directory'
+$env:GIT_CONFIG_VALUE_0 = (Get-Location).Path.Replace('\', '/')
+$env:GH_HOST = 'github.com'
+gh auth login --hostname github.com --git-protocol https --web
+gh auth status --hostname github.com
+gh repo create SalokhiddinMukhiddinov/novda --public --source=. --remote=origin
 git push -u origin main
 ```
 
-If the CLI is not authenticated, run `gh auth login` first. Alternatively, create
+If already authenticated to public GitHub, the login step can be skipped. Alternatively, create
 an empty GitHub repository named `novda` in the GitHub UI, without initializing a
-README or license, then connect it (replace `YOUR_GITHUB_USERNAME`):
+README or license, then connect it:
 
 ```text
-git remote add origin https://github.com/YOUR_GITHUB_USERNAME/novda.git
+git remote add origin https://github.com/SalokhiddinMukhiddinov/novda.git
 git push -u origin main
 ```
 

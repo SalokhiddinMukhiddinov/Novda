@@ -23,6 +23,11 @@ function updateGroundingMode() {
             ? "Attached files are searched locally when relevant"
             : "Qwen runs locally · Attach a file or enable Web Search when needed";
 }
+function updateFooterModel(modelName) {
+    if (searchWeb || selectedDocumentIds.size) return;
+    document.getElementById("search-note").textContent =
+        `${modelName} runs locally · Attach a file or enable Web Search when needed`;
+}
 function updateCodingMode() {
     codingToggle.setAttribute("aria-pressed", String(codingMode));
     codingToggle.textContent = `</> Coding · ${codingMode ? "On" : "Off"}`;

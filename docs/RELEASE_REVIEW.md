@@ -1,5 +1,12 @@
 # Release preparation review
 
+This records the initial preparation. The subsequent
+[release verification](RELEASE_VERIFICATION.md) resolved the browser submission
+failure, verified live workflows, added safe screenshots, and replaced the
+unpublished commit's personal author email with the verified GitHub no-reply
+address under the owner's explicit authorization. That report supersedes the
+remaining-review items and live-test results below.
+
 ## Scope and Git state
 
 The supplied project folder initially had no Git repository, tracked files,

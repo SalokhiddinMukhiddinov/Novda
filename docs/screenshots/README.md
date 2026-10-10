@@ -1,14 +1,20 @@
-# Screenshot locations
+# Portfolio screenshots
 
-Add screenshots here only after reviewing their content for public release:
+Actual 1440 x 1000 Edge browser captures from an isolated synthetic demo store.
+The images were reviewed for private content and contain no personal conversations,
+documents, absolute personal paths, account details, email addresses, or API keys.
+The original local database and uploaded PDFs were not used or changed.
 
-| Filename | Suggested view |
+| Filename | Captured view |
 | --- | --- |
-| `chat.png` | A fresh conversation using a synthetic, non-personal prompt |
-| `documents.png` | An answer grounded in a document you have permission to share |
-| `coding.png` | A proposed patch with the backend diff and Apply & Test controls |
+| [chat.png](chat.png) | Local Qwen3 4B conversation about supervised learning |
+| [documents.png](documents.png) | Local RAG answer citing the synthetic demo study guide |
+| [coding.png](coding.png) | Backend-generated diff of a valid proposal, marked REJECTED; no source edit applied |
+| [web-search.png](web-search.png) | Unpaid web research about Python unittest discovery |
+| [repository.png](repository.png) | Conversation-persistence search with relative file/line references |
 
-These are planned locations, not screenshots that already exist. Once captured,
-add image links to the main README. Crop out personal paths, document names,
-conversation history, account details, and unrelated desktop content. Use a fresh
-data directory when capturing a demo; do not delete your real local data.
+The interface retains its existing "AI Study Assistant" labels. These captures
+show the actual application, without editing the image or restyling the UI.
+See [release verification](../RELEASE_VERIFICATION.md) for the tested settings and
+Coding Mode reliability limits. Future captures should use a fresh data directory
+and synthetic content; review all visible history, sources, and image metadata.
