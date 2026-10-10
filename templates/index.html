@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en" data-font-size="standard">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#090b10">
+    <meta name="description" content="A private, local AI study assistant powered by Ollama.">
+    <title>{{ conversation_title }} · AI Study Assistant</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%238b8df8'/%3E%3Cpath d='M18 39c7-2 11-8 14-18 3 10 7 16 14 18-7 2-11 7-14 14-3-7-7-12-14-14Z' fill='%23090b10'/%3E%3C/svg%3E">
+    <script>
+        try {
+            document.documentElement.dataset.fontSize = localStorage.getItem("study-font-size") || "standard";
+        } catch (error) {
+            document.documentElement.dataset.fontSize = "standard";
+        }
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', path='/style.css') }}">
+    <script src="{{ url_for('static', path='/app.js') }}" defer></script>
+</head>
+<body data-conversation-id="{{ conversation_id }}" data-pending-message="{{ 'true' if pending_message else 'false' }}">
+    <a class="skip-link" href="#message">Skip to message input</a>
+
+    <aside class="sidebar" id="sidebar" aria-label="Study assistant navigation">
+        <div class="sidebar-header">
+            <a class="brand" href="/" aria-label="AI Study Assistant home">
+                <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                <span class="brand-copy"><strong>AI Study</strong><small>ASSISTANT</small></span>
+            </a>
+            <button class="sidebar-close" id="sidebar-close" type="button" aria-label="Close navigation">×</button>
+        </div>
+
+        <form action="/new-chat" method="post">
+            <button class="new-chat" type="submit">
+                <span class="new-chat-icon" aria-hidden="true">＋</span>
+                <span>New conversation</span>
+                <span class="shortcut-glyph" aria-hidden="true">↗</span>
+            </button>
+        </form>
+
+        <nav class="sidebar-nav" aria-label="Workspace">
+            <p class="nav-label">CHATS</p>
+            <div id="chat-history" class="chat-history">
+            {% for chat in conversations %}
+                <div class="history-row" data-chat-id="{{ chat.id }}">
+                    <a class="nav-item {{ 'active' if chat.id == conversation_id else '' }}" href="/?conversation_id={{ chat.id }}" {% if chat.id == conversation_id %}aria-current="page"{% endif %}>
+                        <span class="nav-item-copy"><strong>{{ chat.title }}</strong></span>
+                    </a>
+                    <form class="delete-chat" action="/conversations/{{ chat.id }}/delete" method="post">
+                        <input type="hidden" name="active_id" value="{{ conversation_id }}">
+                        <button type="submit" aria-label="Delete {{ chat.title }}" title="Delete conversation">×</button>
+                    </form>
+                </div>
+            {% endfor %}
+            </div>
+            <a class="nav-item download-link {% if not messages %}is-hidden{% endif %}" href="/download?conversation_id={{ conversation_id }}">
+                <span class="nav-icon" aria-hidden="true">↓</span>
+                <span class="nav-item-copy"><strong>Export notes</strong><small>Download as text</small></span>
+            </a>
+        </nav>
+
+        <details class="document-panel" id="document-panel">
+            <summary>Document Library</summary>
+            <p class="document-help">Previously indexed files. Select one to attach it to this chat.</p>
+            <div id="document-list">
+                {% for document in documents %}
+                <div class="document-row" data-document-id="{{ document.id }}">
+                    <label><input type="checkbox" value="{{ document.id }}" {% if document.id in selected_document_ids %}checked{% endif %} {% if document.status != 'ready' %}disabled{% endif %}> <span>{{ document.filename }}</span></label>
+                    <small>{{ document.status }}{% if document.error %}: {{ document.error }}{% endif %}</small>
+                    <button type="button" class="text-action remove-document" data-document-id="{{ document.id }}" aria-label="Remove {{ document.filename }}">Remove</button>
+                </div>
+                {% endfor %}
+            </div>
+        </details>
+        <section class="preference-panel" aria-labelledby="reading-settings-title">
+            <div class="preference-heading">
+                <span class="nav-icon" aria-hidden="true">Aa</span>
+                <div><strong id="reading-settings-title">Reading size</strong><small>Adjust text for comfort</small></div>
+            </div>
+            <div class="font-control" role="group" aria-label="Reading font size">
+                <button type="button" data-font-size="standard" aria-pressed="true">A</button>
+                <button type="button" data-font-size="large" aria-pressed="false">A+</button>
+                <button type="button" data-font-size="extra-large" aria-pressed="false">A++</button>
+            </div>
+        </section>
+
+        <div class="sidebar-spacer"></div>
+
+        <section class="model-card" aria-label="Local AI status">
+            <div class="model-orb" aria-hidden="true"><span></span></div>
+            <div class="model-copy">
+                <div><strong id="sidebar-model-name">{{ runtime_settings.display_name }}</strong><span>LOCAL</span></div>
+                <p>{{ model_status }}</p>
+            </div>
+            <span class="status-dot {{ 'ready' if model_ready else 'offline' }}"><span class="sr-only">{{ model_status }}</span></span>
+        </section>
+
+        <div class="device-card">
+            <span class="privacy-icon" aria-hidden="true">⌾</span>
+            <div><strong>Private workspace</strong><small>Local model · No API fees</small></div>
+        </div>
+    </aside>
+    <button class="sidebar-scrim" id="sidebar-scrim" type="button" aria-label="Close navigation"></button>
+
+    <main>
+        <header class="topbar">
+            <button class="menu-button" id="menu-button" type="button" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false">
+                <span></span><span></span>
+            </button>
+            <div class="topbar-title">
+                <span class="topbar-kicker">STUDY SESSION</span>
+                <strong id="topbar-title">{{ conversation_title }}</strong>
+            </div>
+            <div class="topbar-meta">
+                <span class="live-indicator"><i class="{{ 'ready' if model_ready else 'offline' }}"></i> {{ model_status }}</span>
+                <span class="privacy-badge">PRIVATE</span>
+            </div>
+        </header>
+
+        <div class="workspace-glow" aria-hidden="true"></div>
+        <div class="chat-shell">
+            <div class="chat-area" id="chat-area" aria-live="polite">
+                {% if not messages %}
+                    <section class="welcome" id="welcome" aria-labelledby="welcome-title">
+                        <div class="welcome-copy">
+                            <div class="edition-label"><span>✦</span> YOUR LOCAL LEARNING SPACE</div>
+                            <h1 id="welcome-title">Think deeper.<br><em>Learn clearer.</em></h1>
+                            <p class="welcome-description">A private AI tutor that helps you unpack difficult ideas, build intuition, and study at your own pace.</p>
+                            <div class="welcome-status"><span class="pulse-dot"></span><strong>Qwen3 is ready</strong><span>Answers generated on your device</span></div>
+                        </div>
+
+                        <div class="knowledge-orbit" aria-hidden="true">
+                            <div class="orbit orbit-one"><span></span></div>
+                            <div class="orbit orbit-two"><span></span><span></span></div>
+                            <div class="orbit orbit-three"><span></span></div>
+                            <div class="orbit-core"><i></i><i></i><i></i><i></i></div>
+                            <p>IDEAS<br><strong>IN MOTION</strong></p>
+                        </div>
+
+                        <div class="prompt-section">
+                            <div class="prompt-heading"><span>Start with a study move</span><small>Choose one, then add your topic</small></div>
+                            <div class="prompt-grid" aria-label="Suggested starting prompts">
+                                <button class="prompt-card" type="button" data-prompt="Explain this step by step: ">
+                                    <span class="prompt-number">01</span>
+                                    <span class="prompt-copy"><strong>Break it down</strong><small>Turn a hard topic into clear steps</small></span>
+                                    <span class="prompt-arrow" aria-hidden="true">↗</span>
+                                </button>
+                                <button class="prompt-card" type="button" data-prompt="Give me a simple real-world example of: ">
+                                    <span class="prompt-number">02</span>
+                                    <span class="prompt-copy"><strong>Make it concrete</strong><small>Understand through a useful example</small></span>
+                                    <span class="prompt-arrow" aria-hidden="true">↗</span>
+                                </button>
+                                <button class="prompt-card" type="button" data-prompt="Compare these two ideas: ">
+                                    <span class="prompt-number">03</span>
+                                    <span class="prompt-copy"><strong>Compare ideas</strong><small>See similarities and key differences</small></span>
+                                    <span class="prompt-arrow" aria-hidden="true">↗</span>
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+                {% else %}
+                    <section class="conversation" id="conversation" aria-label="Conversation">
+                        <div class="conversation-heading">
+                            <div>
+                                <p class="edition-label"><span>✦</span> ACTIVE STUDY THREAD</p>
+                                <h1 id="conversation-title">{{ conversation_title }}</h1>
+                            </div>
+                            <span id="exchange-count">{{ messages|length // 2 }} {{ 'exchange' if messages|length == 2 else 'exchanges' }}</span>
+                        </div>
+
+                        {% for message in messages %}
+                            <article class="message {{ message['role'] }}" data-role="{{ message['role'] }}">
+                                <div class="message-rail" aria-hidden="true"><span>{{ 'Y' if message['role'] == 'user' else '✦' }}</span></div>
+                                <div class="message-body">
+                                    <div class="message-heading">
+                                        <h2>{{ 'You' if message['role'] == 'user' else 'Study Assistant' }}</h2>
+                                        {% if message['role'] == 'assistant' %}<span class="answer-label"><i></i> {{ message.runtime.display_name|upper if message.get('runtime') else 'LOCAL MODEL' }} · LOCAL</span>{% endif %}
+                                    </div>
+                                    <div class="message-content {% if message['role'] == 'assistant' %}markdown-content{% endif %}">{{ message['content'] }}</div>
+                                    {% if message['role'] == 'assistant' %}
+                                        {% if message.get('runtime') %}
+                                        <details class="response-meta">
+                                            <summary>{{ message.runtime.display_name }}{% if message.runtime.get('tokens_per_second') %} · {{ message.runtime.tokens_per_second }} tok/s{% endif %}{% if message.runtime.get('total_duration') %} · {{ '%.1f'|format(message.runtime.total_duration / 1000000000) }} s{% endif %}</summary>
+                                            <div>{% if message.runtime.get('prompt_eval_count') is not none %}<span>Prompt: {{ message.runtime.prompt_eval_count }} tokens</span>{% endif %}{% if message.runtime.get('eval_count') is not none %}<span>Answer: {{ message.runtime.eval_count }} tokens</span>{% endif %}</div>
+                                        </details>
+                                        {% endif %}
+                                        {% if message.get('web') and message['web']['sources'] %}
+                                        <section class="answer-sources" aria-label="Sources">
+                                            <h3>Sources</h3>
+                                            {% for source in message['web']['sources'] %}
+                                            {% if source.get('kind') == 'repository' %}
+                                            <p>[{{ source.number }}] {{ source.reference }}</p>
+                                            {% elif source.get('kind') == 'document' %}
+                                            <p>[{{ source.number }}] {{ source.title }} — page {{ source.page_number }}</p>
+                                            {% else %}
+                                            <a href="{{ source.url }}" target="_blank" rel="noopener noreferrer">[{{ source.number }}] {{ source.title }} — {{ source.domain }}</a>
+                                            {% endif %}
+                                            {% endfor %}
+                                        </section>
+                                        {% endif %}
+                                        <div class="message-actions">
+                                            <button class="text-action copy-answer" type="button" aria-label="Copy this answer"><span aria-hidden="true">▢</span> Copy</button>
+                                            {% if loop.last %}<button class="text-action regenerate" type="button"><span aria-hidden="true">↻</span> Regenerate</button>{% endif %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </article>
+                        {% endfor %}
+                        {% for patch in coding_patches %}
+                        <section class="patch-card" data-patch-id="{{ patch.id }}" data-patch-status="{{ patch.status }}">
+                            <div class="patch-heading"><span>Proposed change</span><strong>{{ patch.status|upper }}</strong></div>
+                            <p>{{ patch.summary }}</p>
+                            <pre class="patch-diff">{{ patch.diff }}</pre>
+                            <p class="patch-stats">Files: {{ patch.patch.files }} · Additions: {{ patch.patch.additions }} · Deletions: {{ patch.patch.deletions }}</p>
+                            {% if patch.status == 'proposed' %}<div class="patch-actions"><button type="button" class="patch-reject">Reject</button><button type="button" class="patch-apply">Apply &amp; Test</button></div>{% endif %}
+                            {% if patch.test %}<pre class="patch-test {{ 'passed' if patch.test.passed else 'failed' }}">{{ '✓ Changes applied — tests passed' if patch.test.passed else '✗ Changes applied — tests failed' }}
+{{ patch.test.output }}</pre>{% endif %}
+                        </section>
+                        {% endfor %}
+                    </section>
+                {% endif %}
+            </div>
+
+            <nav class="prompt-navigation is-hidden" id="prompt-navigation" aria-label="Conversation prompts">
+                <div class="prompt-navigation-track" id="prompt-navigation-track"></div>
+            </nav>
+
+            <button class="jump-latest is-hidden" id="jump-latest" type="button" aria-label="Jump to the latest message">
+                <span aria-hidden="true">↓</span> Jump to latest
+            </button>
+
+            <div class="composer-region">
+                <div class="notice is-hidden" id="notice" role="status" aria-live="assertive"></div>
+                <form class="composer" id="chat-form" action="/chat" method="post">
+                    <div class="attachment-chips {% if not selected_document_ids %}is-hidden{% endif %}" id="attachment-chips" aria-label="Chat attachments">
+                        {% for document in documents %}
+                        {% if document.id in selected_document_ids and document.status == 'ready' %}
+                        <span class="attachment-chip" data-document-id="{{ document.id }}"><span aria-hidden="true">▱</span><span>{{ document.filename }}</span><button type="button" aria-label="Detach {{ document.filename }}">×</button></span>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    <div class="composer-topline">
+                        <span><i></i> Ollama · Local</span>
+                        <span class="repository-status" title="Read-only access to the approved Novda repository">Local Repo · Enabled</span>
+                        <button id="coding-mode" class="coding-toggle" type="button" aria-pressed="false" title="Prepare a reviewed patch; applying still requires approval">&lt;/&gt; Coding · Off</button>
+                        <button id="search-web" class="search-toggle" type="button" aria-pressed="false" title="Send this question to DuckDuckGo; the selected model still runs locally">Search web · Off</button>
+                    </div>
+                    <div class="runtime-controls" aria-label="Model settings">
+                        <label>Model
+                            <select id="chat-model" aria-label="Chat model">
+                                {% for model in models %}<option value="{{ model.name }}" {% if model.name == runtime_settings.chat_model %}selected{% endif %}>{{ model.display_name }}</option>{% endfor %}
+                                {% if not models %}<option value="{{ runtime_settings.chat_model }}">No model available</option>{% endif %}
+                            </select>
+                        </label>
+                        <label class="thinking-control">Thinking <input id="thinking-enabled" type="checkbox" {% if runtime_settings.thinking %}checked{% endif %}><span aria-hidden="true"></span></label>
+                        <label>Context
+                            <select id="context-size" aria-label="Context size">
+                                <option value="4096" {% if runtime_settings.num_ctx == 4096 %}selected{% endif %}>4K</option>
+                                <option value="8192" {% if runtime_settings.num_ctx == 8192 %}selected{% endif %}>8K</option>
+                                <option value="16384" {% if runtime_settings.num_ctx == 16384 %}selected{% endif %}>16K</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="composer-input-row">
+                        <button class="attachment-button" id="attachment-button" type="button" aria-label="Attach a PDF, text, or Markdown file" title="Attach file">📎</button>
+                        <input class="sr-only" id="attachment-file" name="file" type="file" accept=".pdf,.txt,.md">
+                        <label class="sr-only" for="message">What would you like to understand?</label>
+                        <textarea id="message" name="message" rows="1" maxlength="8000" placeholder="Ask anything. Explore everything." required>{{ draft_message }}</textarea>
+                    </div>
+                    <p class="attachment-status is-hidden" id="document-status" role="status" aria-live="polite"></p>
+                    <div class="composer-footer">
+                        <span class="keyboard-hint"><kbd>Enter</kbd> send <i></i> <kbd>Shift</kbd> + <kbd>Enter</kbd> new line</span>
+                        <button class="send-button" id="send-button" type="submit" aria-label="Send message">
+                            <span>Send</span><span class="send-icon" aria-hidden="true">↑</span>
+                        </button>
+                        <button class="stop-button is-hidden" id="stop-button" type="button">
+                            <span class="stop-icon" aria-hidden="true"></span> Stop generating
+                        </button>
+                    </div>
+                </form>
+                <p class="composer-note" id="search-note">Qwen runs locally · Web search sends your question to DuckDuckGo when enabled</p>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

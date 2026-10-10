@@ -1,0 +1,9 @@
+# Direct runtime dependencies. SQLite and unittest are included with Python.
+# Version ranges preserve the existing setup; see README for tested versions.
+fastapi>=0.108,<1
+uvicorn>=0.30,<1
+jinja2>=3.1,<4
+python-multipart>=0.0.18,<1
+httpx>=0.27,<1
+ddgs>=9.16,<10
+pypdf>=6,<7
